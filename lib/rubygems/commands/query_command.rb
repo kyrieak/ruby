@@ -90,6 +90,28 @@ class Gem::Commands::QueryCommand < Gem::Command
       if prerelease and not both? then
         alert_warning "prereleases are always shown locally"
       end
+      
+      specs = Gem::Specification.find_all { |s|
+        s.name =~ name and req =~ s.version
+      }
+
+      global_specs, additional_specs = [], []
+
+      specs.each do |s|
+        if s.loaded_from.include?("@global/")
+          global_specs << s
+        else
+          additional_specs << s
+        end
+      end
+
+      g_spec_tuples = global_specs.map do |spec|
+        [[spec.name, spec.version, spec.original_platform, spec], :local]
+      end
+
+      a_spec_tuples = additional_specs.map do |spec|
+        [[spec.name, spec.version, spec.original_platform, spec], :local]
+      end
 
       if ui.outs.tty? or both? then
         say
@@ -97,15 +119,15 @@ class Gem::Commands::QueryCommand < Gem::Command
         say
       end
 
-      specs = Gem::Specification.find_all { |s|
-        s.name =~ name and req =~ s.version
-      }
+      output_query_results a_spec_tuples
 
-      spec_tuples = specs.map do |spec|
-        [spec.name_tuple, spec]
+      if ui.outs.tty? or both? then
+        say
+        say "*** GLOBAL GEMS ***"
+        say
       end
 
-      output_query_results spec_tuples
+      output_query_results g_spec_tuples
     end
 
     if remote? then
